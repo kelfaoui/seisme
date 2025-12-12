@@ -13,6 +13,7 @@ export default function NewUserPage() {
     password: '',
   });
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
 
   const router = useRouter();
 
@@ -23,7 +24,15 @@ export default function NewUserPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setProfilePicFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setProfilePicFile(file);
+      
+      // Créer un aperçu de l'image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -81,11 +90,33 @@ export default function NewUserPage() {
 
           {/* FILE UPLOAD HERE */}
           <div>
-            <label className="block text-sm font-medium mb-1">Photo de profil (fichier)</label>
-            <input type="file" name="profile_pic" accept="image/*" onChange={handleFileChange} className="w-full border border-gray-300 rounded px-3 py-2" />
+            <label className="block text-sm font-medium mb-1">Photo de profil</label>
+            {profilePicPreview && (
+              <div className="mb-3">
+                <img
+                  src={profilePicPreview}
+                  alt="Aperçu"
+                  className="w-32 h-32 object-cover rounded-full border-2 border-gray-300"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              name="profile_pic"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
           </div>
 
-          <div className="text-right">
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+              Annuler
+            </button>
             <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
               Enregistrer
             </button>

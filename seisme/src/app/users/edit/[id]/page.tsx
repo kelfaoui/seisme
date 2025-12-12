@@ -22,6 +22,9 @@ export default function EditUserPage() {
     username: '',
     password: '',
   });
+  const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
+  const [profilePicPreview, setProfilePicPreview] = useState<string | null>(null);
+  const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,6 +42,9 @@ export default function EditUserPage() {
           username: data.username || '',
           password: '',
         });
+        if (data.profile_pic) {
+          setCurrentProfilePic(data.profile_pic);
+        }
       })
       .catch(() => {
         alert("Impossible de charger l'utilisateur");
@@ -52,12 +58,36 @@ export default function EditUserPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setProfilePicFile(file);
+      
+      // Créer un aperçu de l'image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfilePicPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const formData = new FormData();
+    Object.entries(form).forEach(([key, value]) => {
+      if (value) {
+        formData.append(key, value);
+      }
+    });
+    if (profilePicFile) {
+      formData.append('profile_pic', profilePicFile);
+    }
+
     const res = await fetch(`/api/users/${params.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: formData,
     });
     if (res.ok) {
       router.push('/users');
@@ -133,7 +163,33 @@ export default function EditUserPage() {
               placeholder="Laisser vide pour ne pas changer"
             />
           </div>
-          <div className="text-right">
+          <div>
+            <label className="block text-sm font-medium mb-1">Photo de profil</label>
+            {(profilePicPreview || currentProfilePic) && (
+              <div className="mb-3">
+                <img
+                  src={profilePicPreview || currentProfilePic || '/default-image.png'}
+                  alt="Photo de profil"
+                  className="w-32 h-32 object-cover rounded-full border-2 border-gray-300"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              name="profile_pic"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="w-full border border-gray-300 rounded px-3 py-2"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+            >
+              Annuler
+            </button>
             <button type="submit" className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
               Enregistrer
             </button>

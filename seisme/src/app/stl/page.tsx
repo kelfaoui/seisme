@@ -7,53 +7,89 @@ import {
 } from 'recharts';
 import Layout from '../components/Layout';
 
+interface StlDataPoint {
+  date: string;
+  observed: number;
+  trend: number;
+  seasonal: number;
+  resid: number;
+}
+
+interface ForecastDataPoint {
+  date: string;
+  value: number;
+  type: string;
+}
+
+interface RfmDataPoint {
+  client_id: any;
+  recence: any;
+  frequence: any;
+  montant: any;
+  cluster: any;
+}
+
 export default function Home() {
-  const [stlData, setStlData] = useState([]);
-  const [forecastData, setForecastData] = useState([]);
-  const [rfmData, setRfmData] = useState([]);
+  const [stlData, setStlData] = useState<StlDataPoint[]>([]);
+  const [forecastData, setForecastData] = useState<ForecastDataPoint[]>([]);
+  const [rfmData, setRfmData] = useState<RfmDataPoint[]>([]);
   const [numbers, setNumbers] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      const stlRes = await fetch('http://localhost:8000/stl');
-      const forecastRes = await fetch('http://localhost:8000/predict');
-      const rfmRes = await fetch('http://localhost:8000/rfm');
-      const numberRes = await fetch('http://localhost:8000/numbers');
+      try {
+        const stlRes = await fetch('http://localhost:8000/stl');
+        const forecastRes = await fetch('http://localhost:8000/predict');
+        const rfmRes = await fetch('http://localhost:8000/rfm');
+        const numberRes = await fetch('http://localhost:8000/numbers');
 
-      const stl = await stlRes.json();
-      const forecast = await forecastRes.json();
-      const rfm = await rfmRes.json();
-      const nums = await numberRes.json();
+        const stl = await stlRes.json();
+        const forecast = await forecastRes.json();
+        const rfm = await rfmRes.json();
+        const nums = await numberRes.json();
 
-      setNumbers(nums);
+        setNumbers(nums || {});
 
-      setStlData(stl.dates.map((date: string, i: number) => ({
-        date,
-        observed: stl.observed[i],
-        trend: stl.trend[i],
-        seasonal: stl.seasonal[i],
-        resid: stl.resid[i],
-      })));
+        if (stl?.dates && Array.isArray(stl.dates)) {
+          setStlData(stl.dates.map((date: string, i: number) => ({
+            date,
+            observed: stl.observed?.[i] || 0,
+            trend: stl.trend?.[i] || 0,
+            seasonal: stl.seasonal?.[i] || 0,
+            resid: stl.resid?.[i] || 0,
+          })));
+        }
 
-      setForecastData(forecast.history_dates.map((date: string, i: number) => ({
-        date,
-        value: forecast.history[i],
-        type: 'historique',
-      })).concat(
-        forecast.forecast_dates.map((date: string, i: number) => ({
-          date,
-          value: forecast.forecast[i],
-          type: 'prévision',
-        }))
-      ));
+        if (forecast?.history_dates && Array.isArray(forecast.history_dates)) {
+          const historyData = forecast.history_dates.map((date: string, i: number) => ({
+            date,
+            value: forecast.history?.[i] || 0,
+            type: 'historique',
+          }));
+          
+          const forecastData = (forecast.forecast_dates && Array.isArray(forecast.forecast_dates))
+            ? forecast.forecast_dates.map((date: string, i: number) => ({
+                date,
+                value: forecast.forecast?.[i] || 0,
+                type: 'prévision',
+              }))
+            : [];
+          
+          setForecastData([...historyData, ...forecastData]);
+        }
 
-      setRfmData(rfm.map((row: any) => ({
-        client_id: row.client_id,
-        recence: row.recence,
-        frequence: row.frequence,
-        montant: row.montant,
-        cluster: row.cluster,
-      })));
+        if (rfm && Array.isArray(rfm)) {
+          setRfmData(rfm.map((row: any) => ({
+            client_id: row.client_id,
+            recence: row.recence,
+            frequence: row.frequence,
+            montant: row.montant,
+            cluster: row.cluster,
+          })));
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des données:', error);
+      }
     };
 
     fetchData();

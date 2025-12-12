@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function UserMenu({ user }: { user: any }) {
   const [open, setOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const router = useRouter();
 
   const handleLogout = () => {
@@ -20,8 +21,17 @@ export default function UserMenu({ user }: { user: any }) {
           className="flex items-center space-x-2 focus:outline-none"
           onClick={() => setOpen(!open)}
         >
-          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
-            <FontAwesomeIcon icon={faUser} />
+          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white overflow-hidden">
+            {user.profile_pic && !imageError ? (
+              <img
+                src={user.profile_pic}
+                alt={`${user.first_name} ${user.last_name}`}
+                className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <FontAwesomeIcon icon={faUser} />
+            )}
           </div>
           <span className="hidden md:inline text-sm">
             {user.first_name + " " + user.last_name}

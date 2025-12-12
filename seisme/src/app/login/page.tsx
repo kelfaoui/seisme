@@ -23,8 +23,7 @@ export default function LoginPage() {
       const { token, user } = await res.json();
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      console.log(localStorage.getItem('user'));
-      router.push('/');
+      router.push('/dashboard');
     } else {
       alert('Email ou mot de passe incorrect');
     }

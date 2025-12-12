@@ -22,11 +22,34 @@ export default function UsersPage() {
   const limit = 10;
 
   useEffect(() => {
+    // Vérifier l'admin côté client
+    const userStr = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (!userStr) {
+      window.location.href = '/';
+      return;
+    }
+    try {
+      const u = JSON.parse(userStr);
+      if (!u?.is_admin) {
+        window.location.href = '/';
+        return;
+      }
+    } catch {
+      window.location.href = '/';
+      return;
+    }
+
     fetch(`/api/users?page=${page}`)
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('Unauthorized');
+        return res.json();
+      })
       .then(data => {
         setUsers(data.data);
         setTotal(data.total);
+      })
+      .catch(() => {
+        window.location.href = '/';
       });
   }, [page]);
 

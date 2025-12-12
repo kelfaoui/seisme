@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import Layout from '../components/Layout';
 
@@ -19,7 +18,7 @@ const getMagnitudeColor = (mag: number): string => {
   return '#91cf60';
 };
 
-const createQuakeIcon = (mag: number) => {
+const createQuakeIcon = (mag: number, L: any) => {
   const size = Math.max(8, Math.min(24, mag * 3));
   const color = getMagnitudeColor(mag);
   return L.divIcon({
@@ -51,6 +50,15 @@ export default function SeismMapPage() {
   const [seisms, setSeisms] = useState<Seism[]>([]);
   const [loading, setLoading] = useState(true);
   const [mapCenter, setMapCenter] = useState<[number, number]>([0, 0]);
+  const [Leaflet, setLeaflet] = useState<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('leaflet').then(L => {
+        setLeaflet(L.default);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const fetchSeisms = async () => {
@@ -95,14 +103,14 @@ export default function SeismMapPage() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
               />
-              {seisms.map(quake => {
+              {Leaflet && seisms.map(quake => {
                 if (typeof quake.latitude !== 'number' || typeof quake.longitude !== 'number') return null;
 
                 return (
                   <Marker
                     key={quake.id}
                     position={[quake.latitude, quake.longitude]}
-                    icon={createQuakeIcon(quake.mag)}
+                    icon={createQuakeIcon(quake.mag, Leaflet)}
                   >
                     <Popup>
                       <div className="text-sm space-y-2 max-w-xs">

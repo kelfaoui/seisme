@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // Récupérer un utilisateur par id
 export async function GET(
@@ -36,22 +38,71 @@ export async function PUT(
 
   try {
     const contentType = req.headers.get('content-type') || '';
-    const data =
-      contentType.includes('multipart/form-data')
-        ? await parseMultipart(req)
-        : await req.json();
+    
+    let email, first_name, last_name, username, password, profilePicPath = null;
 
-    const { email, first_name, last_name, username, password } = data;
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      email = formData.get('email') as string;
+      first_name = formData.get('first_name') as string;
+      last_name = formData.get('last_name') as string;
+      username = formData.get('username') as string;
+      password = formData.get('password') as string;
+      
+      const profilePic = formData.get('profile_pic') as File | null;
+      if (profilePic && profilePic.size > 0) {
+        const bytes = await profilePic.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        // Créer le dossier uploads s'il n'existe pas
+        const uploadsDir = join(process.cwd(), 'public', 'uploads');
+        try {
+          await mkdir(uploadsDir, { recursive: true });
+        } catch (err) {
+          // Le dossier existe déjà, on continue
+        }
+        
+        // Générer un nom de fichier unique
+        const timestamp = Date.now();
+        const filename = `${timestamp}_${profilePic.name}`;
+        const filepath = join(uploadsDir, filename);
+        
+        await writeFile(filepath, buffer);
+        profilePicPath = `/uploads/${filename}`;
+      }
+    } else {
+      const data = await req.json();
+      email = data.email;
+      first_name = data.first_name;
+      last_name = data.last_name;
+      username = data.username;
+      password = data.password;
+    }
 
     if (!email) {
       return NextResponse.json({ error: 'Email requis' }, { status: 400 });
     }
 
+    // Si un nouveau mot de passe n'est pas fourni, ne pas le mettre à jour
+    const updateFields = ['email', 'first_name', 'last_name', 'username'];
+    const updateValues: any[] = [email, first_name || null, last_name || null, username || null];
+    
+    if (password) {
+      updateFields.push('password');
+      updateValues.push(password);
+    }
+    
+    if (profilePicPath) {
+      updateFields.push('profile_pic');
+      updateValues.push(profilePicPath);
+    }
+    
+    updateValues.push(id);
+    
+    const setClause = updateFields.map(field => `${field} = ?`).join(', ');
     await db.query(
-      `UPDATE users
-       SET email = ?, first_name = ?, last_name = ?, username = ?, password = ?
-       WHERE id = ?`,
-      [email, first_name || null, last_name || null, username || null, password || null, id]
+      `UPDATE users SET ${setClause} WHERE id = ?`,
+      updateValues
     );
 
     return NextResponse.json({ success: true });
@@ -80,15 +131,4 @@ export async function DELETE(
   }
 }
 
-async function parseMultipart(req: NextRequest) {
-  const form = await req.formData();
-  return {
-    email: form.get('email') as string | null,
-    first_name: form.get('first_name') as string | null,
-    last_name: form.get('last_name') as string | null,
-    username: form.get('username') as string | null,
-    password: form.get('password') as string | null,
-    // profile_pic: form.get('profile_pic') // à gérer si besoin
-  };
-}
 

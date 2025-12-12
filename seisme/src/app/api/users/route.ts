@@ -1,6 +1,8 @@
 // app/api/users/route.ts
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/db'; // MySQL pool/connection
+import { writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // GET: fetch paginated users
 export async function GET(req: Request) {
@@ -26,19 +28,53 @@ export async function POST(req: Request) {
   try {
     const contentType = req.headers.get('content-type') || '';
 
-    // Accepte JSON (inscription) et multipart/form-data (page admin avec upload)
-    const { email, first_name, last_name, username, password } =
-      contentType.includes('multipart/form-data')
-        ? await parseMultipart(req)
-        : await req.json();
+    let email, first_name, last_name, username, password, profilePicPath = null;
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      email = formData.get('email') as string;
+      first_name = formData.get('first_name') as string;
+      last_name = formData.get('last_name') as string;
+      username = formData.get('username') as string;
+      password = formData.get('password') as string;
+      
+      const profilePic = formData.get('profile_pic') as File | null;
+      if (profilePic && profilePic.size > 0) {
+        const bytes = await profilePic.arrayBuffer();
+        const buffer = Buffer.from(bytes);
+        
+        // Créer le dossier uploads s'il n'existe pas
+        const uploadsDir = join(process.cwd(), 'public', 'uploads');
+        try {
+          await mkdir(uploadsDir, { recursive: true });
+        } catch (err) {
+          // Le dossier existe déjà, on continue
+        }
+        
+        // Générer un nom de fichier unique
+        const timestamp = Date.now();
+        const filename = `${timestamp}_${profilePic.name}`;
+        const filepath = join(uploadsDir, filename);
+        
+        await writeFile(filepath, buffer);
+        profilePicPath = `/uploads/${filename}`;
+      }
+    } else {
+      const body = await req.json();
+      email = body.email;
+      first_name = body.first_name;
+      last_name = body.last_name;
+      username = body.username;
+      password = body.password;
+    }
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email et mot de passe requis' }, { status: 400 });
     }
 
     await db.query(
-      'INSERT INTO users (email, first_name, last_name, username, password) VALUES (?, ?, ?, ?, ?)',
-      [email, first_name, last_name, username, password]
+      'INSERT INTO users (email, first_name, last_name, username, password, profile_pic) VALUES (?, ?, ?, ?, ?, ?)',
+      [email, first_name, last_name, username, password, profilePicPath]
     );
 
     return NextResponse.json({ success: true }, { status: 201 });
@@ -48,15 +84,3 @@ export async function POST(req: Request) {
   }
 }
 
-// Simplify multipart parsing to extract text fields we need
-async function parseMultipart(req: Request) {
-  const form = await req.formData();
-  return {
-    email: form.get('email'),
-    first_name: form.get('first_name'),
-    last_name: form.get('last_name'),
-    username: form.get('username'),
-    password: form.get('password'),
-    // profile_pic: form.get('profile_pic') // à gérer plus tard si nécessaire
-  } as Record<string, any>;
-}
