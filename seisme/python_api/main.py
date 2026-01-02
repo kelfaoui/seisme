@@ -136,11 +136,37 @@ async def get_numbers():
 
 
 @app.get("/seisms")
-async def get_seisms(page: int = 1, limit: int = 10):
+async def get_seisms(
+    page: int = 1, 
+    limit: int = 10,
+    min_mag: float = None,
+    max_mag: float = None,
+    min_depth: float = None,
+    max_depth: float = None
+):
     try:
         df = load_earthquake_data()
+        
+        # Convertir la colonne mag en numérique, en gérant les erreurs
+        df['mag'] = pd.to_numeric(df['mag'], errors='coerce')
+        
+        # Appliquer les filtres de magnitude
+        if min_mag is not None:
+            df = df[df['mag'] >= min_mag]
+        if max_mag is not None:
+            df = df[df['mag'] <= max_mag]
+            
+        # Appliquer les filtres de profondeur
+        if min_depth is not None:
+            df = df[df['depth'] >= min_depth]
+        if max_depth is not None:
+            df = df[df['depth'] <= max_depth]
+        
+        # Trier par date (du plus récent au plus ancien)
+        df = df.sort_values('time', ascending=False)
+        
         total = len(df)
-
+        
         # Pagination
         start = (page - 1) * limit
         end = start + limit
@@ -153,7 +179,7 @@ async def get_seisms(page: int = 1, limit: int = 10):
             "total": total,
             "page": page,
             "limit": limit,
-            "total_pages": (total + limit - 1) // limit
+            "total_pages": (total + limit - 1) // limit if limit > 0 else 1
         })
 
     except Exception as e:

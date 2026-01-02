@@ -19,25 +19,252 @@ export default function SeismsPage() {
   const [seisms, setSeisms] = useState<Seism[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  // États pour les filtres
+  const [minMagnitude, setMinMagnitude] = useState<number | ''>('');
+  const [maxMagnitude, setMaxMagnitude] = useState<number | ''>('');
+  const [minDepth, setMinDepth] = useState<number | ''>('');
+  const [maxDepth, setMaxDepth] = useState<number | ''>('');
+  const [minLatitude, setMinLatitude] = useState<number | ''>('');
+  const [maxLatitude, setMaxLatitude] = useState<number | ''>('');
+  const [minLongitude, setMinLongitude] = useState<number | ''>('');
+  const [maxLongitude, setMaxLongitude] = useState<number | ''>('');
+
+  const [appliedFilters, setAppliedFilters] = useState({
+    minMag: null as number | null,
+    maxMag: null as number | null,
+    minDepth: null as number | null,
+    maxDepth: null as number | null,
+    minLat: null as number | null,
+    maxLat: null as number | null,
+    minLon: null as number | null,
+    maxLon: null as number | null
+  });
   const limit = 10;
 
   useEffect(() => {
-    fetch(`http://localhost:8000/seisms?page=${page}&limit=${limit}`)
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      ...(appliedFilters.minMag !== null && { min_mag: appliedFilters.minMag.toString() }),
+      ...(appliedFilters.maxMag !== null && { max_mag: appliedFilters.maxMag.toString() }),
+      ...(appliedFilters.minDepth !== null && { min_depth: appliedFilters.minDepth.toString() }),
+      ...(appliedFilters.maxDepth !== null && { max_depth: appliedFilters.maxDepth.toString() }),
+      ...(appliedFilters.minLat !== null && { min_lat: appliedFilters.minLat.toString() }),
+      ...(appliedFilters.maxLat !== null && { max_lat: appliedFilters.maxLat.toString() }),
+      ...(appliedFilters.minLon !== null && { min_lon: appliedFilters.minLon.toString() }),
+      ...(appliedFilters.maxLon !== null && { max_lon: appliedFilters.maxLon.toString() })
+    });
+
+    fetch(`http://localhost:8000/seisms?${params}`)
       .then(res => res.json())
       .then(data => {
         setSeisms(data.data);
         setTotal(data.total);
       })
       .catch(err => console.error("Failed to fetch seisms:", err));
-  }, [page]);
+  }, [page, appliedFilters]);
+
+  const handleFilter = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppliedFilters({
+      minMag: minMagnitude === '' ? null : Number(minMagnitude),
+      maxMag: maxMagnitude === '' ? null : Number(maxMagnitude),
+      minDepth: minDepth === '' ? null : Number(minDepth),
+      maxDepth: maxDepth === '' ? null : Number(maxDepth),
+      minLat: minLatitude === '' ? null : Number(minLatitude),
+      maxLat: maxLatitude === '' ? null : Number(maxLatitude),
+      minLon: minLongitude === '' ? null : Number(minLongitude),
+      maxLon: maxLongitude === '' ? null : Number(maxLongitude)
+    });
+    setPage(1); // Reset to first page when applying new filters
+  };
+
+  const resetFilters = () => {
+    setMinMagnitude('');
+    setMaxMagnitude('');
+    setMinDepth('');
+    setMaxDepth('');
+    setMinLatitude('');
+    setMaxLatitude('');
+    setMinLongitude('');
+    setMaxLongitude('');
+    setAppliedFilters({ 
+      minMag: null, 
+      maxMag: null, 
+      minDepth: null, 
+      maxDepth: null,
+      minLat: null,
+      maxLat: null,
+      minLon: null,
+      maxLon: null
+    });
+    setPage(1);
+  };
 
   const totalPages = Math.ceil(total / limit);
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold">Séismes Récents (M ≥ 2.5)</h1>
+        <div className="mb-6">
+          <h1 className="text-xl font-bold mb-4">Séismes Récents</h1>
+
+          <div className="border border-gray-200 rounded-lg p-4 shadow-sm">
+            <form onSubmit={handleFilter} className="space-y-4">
+              <div className="flex flex-wrap gap-6">
+                {/* Filtre Magnitude */}
+                <div className="flex-1 min-w-[200px]">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">Magnitude</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="minMagnitude" className="block text-xs font-medium text-gray-600 mb-1">Min</label>
+                      <input
+                        type="number"
+                        id="minMagnitude"
+                        step="0.1"
+                        min="0"
+                        max={maxMagnitude || ''}
+                        value={minMagnitude}
+                        onChange={(e) => setMinMagnitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0.0"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="maxMagnitude" className="block text-xs font-medium text-gray-600 mb-1">Max</label>
+                      <input
+                        type="number"
+                        id="maxMagnitude"
+                        step="0.1"
+                        min={minMagnitude || '0'}
+                        value={maxMagnitude}
+                        onChange={(e) => setMaxMagnitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="10.0"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtre Profondeur */}
+                <div className="flex-1 min-w-[200px]">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">Profondeur (km)</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label htmlFor="minDepth" className="block text-xs font-medium text-gray-600 mb-1">Min</label>
+                      <input
+                        type="number"
+                        id="minDepth"
+                        step="1"
+                        min="0"
+                        max={maxDepth || ''}
+                        value={minDepth}
+                        onChange={(e) => setMinDepth(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="maxDepth" className="block text-xs font-medium text-gray-600 mb-1">Max</label>
+                      <input
+                        type="number"
+                        id="maxDepth"
+                        step="1"
+                        min={minDepth || '0'}
+                        value={maxDepth}
+                        onChange={(e) => setMaxDepth(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="1000"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtre Position */}
+                <div className="flex-1 min-w-[200px]">
+                  <h3 className="text-md font-medium text-gray-700 mb-3">Position</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <h4 className="text-xs font-medium text-gray-600 mb-1">Latitude</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="-90"
+                            max="90"
+                            value={minLatitude}
+                            onChange={(e) => setMinLatitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Min (-90)"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min={minLatitude !== '' ? minLatitude : '-90'}
+                            max="90"
+                            value={maxLatitude}
+                            onChange={(e) => setMaxLatitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Max (90)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-medium text-gray-600 mb-1">Longitude</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="-180"
+                            max="180"
+                            value={minLongitude}
+                            onChange={(e) => setMinLongitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Min (-180)"
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min={minLongitude !== '' ? minLongitude : '-180'}
+                            max="180"
+                            value={maxLongitude}
+                            onChange={(e) => setMaxLongitude(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Max (180)"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={resetFilters}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Réinitialiser
+                </button>
+                <button 
+                  type="submit" 
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Appliquer
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-xl shadow-md bg-white">
